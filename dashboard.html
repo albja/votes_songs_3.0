@@ -105,7 +105,7 @@
 
             .top-1 {
                 grid-column: 1 / -1;
-                background: linear-gradient(135deg, #E6C84A 0%, #D4B840 100%);
+                background: linear-gradient(135deg, #e6c84a 0%, #d4b840 100%);
                 border-color: rgba(230, 200, 74, 0.3);
                 padding: 30px;
                 text-align: center;
@@ -223,8 +223,33 @@
                 </p>
             </div>
 
+            <!-- 📈 Stats en haut -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="label">Total votes</div>
+                    <div class="value" id="total-votes">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Morceaux</div>
+                    <div class="value" id="total-songs">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Statut</div>
+                    <div class="value" id="status">🟢 Live</div>
+                </div>
+            </div>
+
             <!-- 🔘 Boutons en haut -->
-            <div style="text-align: center; margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
+            <div
+                style="
+                    text-align: center;
+                    margin-bottom: 30px;
+                    display: flex;
+                    gap: 10px;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                "
+            >
                 <button
                     id="new-round-btn"
                     class="reset-btn"
@@ -241,21 +266,6 @@
             </div>
 
             <div id="stats" class="loading">Chargement en cours...</div>
-
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="label">Total votes</div>
-                    <div class="value" id="total-votes">0</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Morceaux</div>
-                    <div class="value" id="total-songs">0</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Statut</div>
-                    <div class="value" id="status">🟢 Live</div>
-                </div>
-            </div>
         </div>
 
         <script type="module">
