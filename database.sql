@@ -13,12 +13,22 @@ create table songs (
 create table votes (
   id uuid default gen_random_uuid() primary key,
   song_id uuid references songs(id) on delete cascade,
+  device_id text,
   created_at timestamp default now()
+);
+
+-- 2 bis) Table des votants (prénoms saisis le soir du concert)
+create table voters (
+  device_id text primary key,
+  first_name text not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
 );
 
 -- 3) Sécurité (Row Level Security)
 alter table songs enable row level security;
 alter table votes enable row level security;
+alter table voters enable row level security;
 
 -- 4) Permissions
 -- Les clients peuvent voir les morceaux
@@ -39,8 +49,33 @@ on votes for select
 to anon, authenticated
 using (true);
 
+-- Les clients et le dashboard peuvent lire les prénoms enregistrés
+create policy "public read voters"
+on voters for select
+to anon, authenticated
+using (true);
+
+-- Les clients peuvent créer / mettre à jour leur prénom
+create policy "public insert voters"
+on voters for insert
+to anon, authenticated
+with check (true);
+
+create policy "public update voters"
+on voters for update
+to anon, authenticated
+using (true)
+with check (true);
+
+-- Le dashboard peut effacer les prénoms avant un concert
+create policy "public delete voters"
+on voters for delete
+to anon, authenticated
+using (true);
+
 -- 5) Active le temps réel (Realtime)
 alter publication supabase_realtime add table votes;
+alter publication supabase_realtime add table voters;
 
 -- 6) Insère les 5 morceaux
 insert into songs (title, artist) values

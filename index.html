@@ -97,12 +97,110 @@
                 border-radius: 8px;
                 margin-top: 20px;
             }
+
+            .name-card {
+                background: #f5f3ff;
+                border: 2px solid #c7d2fe;
+                border-radius: 14px;
+                padding: 20px;
+                margin-bottom: 24px;
+                text-align: left;
+            }
+
+            .name-card label {
+                display: block;
+                font-size: 14px;
+                font-weight: 600;
+                color: #4338ca;
+                margin-bottom: 10px;
+            }
+
+            .name-row {
+                display: flex;
+                gap: 10px;
+            }
+
+            .name-row input {
+                flex: 1;
+                padding: 14px;
+                font-size: 16px;
+                border: 2px solid #c7d2fe;
+                border-radius: 10px;
+                outline: none;
+                color: #1e1b4b;
+            }
+
+            .name-row input:focus {
+                border-color: #667eea;
+            }
+
+            .name-row button {
+                padding: 14px 18px;
+                font-size: 15px;
+                border: none;
+                background: #667eea;
+                color: #fff;
+                border-radius: 10px;
+                cursor: pointer;
+                text-align: center;
+            }
+
+            .name-row button:hover {
+                background: #5568d3;
+            }
+
+            .greeting {
+                font-size: 15px;
+                color: #4338ca;
+                font-weight: 600;
+            }
+
+            .greeting button {
+                margin-top: 10px;
+                padding: 8px 14px;
+                font-size: 13px;
+                border: 1px solid #c7d2fe;
+                background: #fff;
+                color: #4338ca;
+                border-radius: 8px;
+                cursor: pointer;
+                text-align: center;
+                font-weight: 600;
+            }
+
+            .hidden {
+                display: none !important;
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>🎵 Vote</h2>
             <p class="subtitle">Quel morceau veux-tu entendre ?</p>
+
+            <div class="name-card" id="name-card">
+                <div id="name-form">
+                    <label for="first-name">Ton prénom (pour le live 🎤)</label>
+                    <div class="name-row">
+                        <input
+                            id="first-name"
+                            type="text"
+                            placeholder="Ex : Camille"
+                            autocomplete="given-name"
+                            maxlength="40"
+                        />
+                        <button id="save-name" type="button">OK</button>
+                    </div>
+                </div>
+                <div id="name-greeting" class="greeting hidden">
+                    <span id="greeting-text"></span>
+                    <br />
+                    <button id="edit-name" type="button">
+                        Changer de prénom
+                    </button>
+                </div>
+            </div>
+
             <div id="songs" class="loading">Chargement des morceaux...</div>
             <p id="vote-info" class="subtitle" style="margin-top: 16px"></p>
         </div>
@@ -112,6 +210,73 @@
             let hasVoted = false;
             let currentRound = 1;
             let allButtons = [];
+            let firstName = localStorage.getItem("voter_first_name") || "";
+
+            // Identifiant stable par appareil (ne change pas entre les tours)
+            function getDeviceId() {
+                let id = localStorage.getItem("device_id");
+                if (!id) {
+                    id =
+                        (crypto.randomUUID && crypto.randomUUID()) ||
+                        "dev-" +
+                            Date.now() +
+                            "-" +
+                            Math.random().toString(16).slice(2);
+                    localStorage.setItem("device_id", id);
+                }
+                return id;
+            }
+            const deviceId = getDeviceId();
+
+            const nameForm = document.getElementById("name-form");
+            const nameGreeting = document.getElementById("name-greeting");
+            const greetingText = document.getElementById("greeting-text");
+            const firstNameInput = document.getElementById("first-name");
+
+            function showGreeting() {
+                greetingText.innerText = `Salut ${firstName} 👋 ton prénom s'affichera sur le live.`;
+                nameForm.classList.add("hidden");
+                nameGreeting.classList.remove("hidden");
+            }
+
+            function showNameForm() {
+                firstNameInput.value = firstName;
+                nameForm.classList.remove("hidden");
+                nameGreeting.classList.add("hidden");
+                firstNameInput.focus();
+            }
+
+            async function saveFirstName() {
+                const value = firstNameInput.value.trim();
+                if (!value) {
+                    firstNameInput.focus();
+                    return;
+                }
+                firstName = value;
+                localStorage.setItem("voter_first_name", firstName);
+                showGreeting();
+                try {
+                    await supabase.from("voters").upsert(
+                        {
+                            device_id: deviceId,
+                            first_name: firstName,
+                            updated_at: new Date().toISOString(),
+                        },
+                        { onConflict: "device_id" },
+                    );
+                } catch (err) {
+                    console.warn("Prénom non synchronisé:", err);
+                }
+            }
+
+            document.getElementById("save-name").onclick = saveFirstName;
+            document.getElementById("edit-name").onclick = showNameForm;
+            firstNameInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") saveFirstName();
+            });
+
+            // Le prénom survit aux nouveaux tours
+            if (firstName) showGreeting();
 
             async function loadRound() {
                 try {
@@ -165,9 +330,23 @@
                                 return;
                             }
                             try {
-                                await supabase
-                                    .from("votes")
-                                    .insert([{ song_id: song.id }]);
+                                if (firstName) {
+                                    await supabase.from("voters").upsert(
+                                        {
+                                            device_id: deviceId,
+                                            first_name: firstName,
+                                            updated_at:
+                                                new Date().toISOString(),
+                                        },
+                                        { onConflict: "device_id" },
+                                    );
+                                }
+                                await supabase.from("votes").insert([
+                                    {
+                                        song_id: song.id,
+                                        device_id: deviceId,
+                                    },
+                                ]);
                                 hasVoted = true;
                                 localStorage.setItem(
                                     "voted_round",

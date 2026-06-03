@@ -92,6 +92,17 @@ Par tes vraies clés (depuis Supabase → Settings → API)
 3. Tu vois le classement en temps réel
 4. Pas besoin de refresh manuel ✅
 
+## 👤 Prénoms des votants (soir de concert)
+
+- Sur la page de vote, chaque personne saisit son **prénom** (mémorisé sur son téléphone).
+- Le prénom s'affiche en direct sous chaque morceau dans le **dashboard**.
+- Le bouton **🔄 Nouveau tour** rouvre les votes **sans** effacer le prénom côté votant.
+- Le bouton **🧹 Effacer les prénoms** (dashboard) vide la table `voters` sans toucher aux votes.
+
+> ⚠️ **Mise à jour base de données obligatoire** : exécute à nouveau `fix_permissions.sql`
+> dans Supabase (SQL Editor) pour créer la table `voters`, ses policies et la colonne
+> `device_id` sur `votes`.
+
 ## 🔧 Personnalisation
 
 ### Changer les 5 morceaux

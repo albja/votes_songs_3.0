@@ -74,6 +74,32 @@
                 font-size: 14px;
             }
 
+            .voters {
+                margin-top: 8px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .voter-chip {
+                font-size: 12px;
+                font-weight: 600;
+                color: #a7f3d0;
+                background: rgba(16, 185, 129, 0.15);
+                border: 1px solid rgba(16, 185, 129, 0.35);
+                padding: 3px 10px;
+                border-radius: 999px;
+            }
+
+            .top-1 .voter-chip {
+                color: #064e3b;
+                background: rgba(255, 255, 255, 0.55);
+                border-color: rgba(0, 0, 0, 0.15);
+            }
+
+            .top-1 .voters {
+                justify-content: center;
+            }
             .votes-section {
                 display: flex;
                 flex-direction: column;
@@ -268,6 +294,9 @@
                 <button id="reset-btn" class="reset-btn">
                     🗑️ Réinitialiser les votes
                 </button>
+                <button id="reset-names-btn" class="reset-btn">
+                    🧹 Effacer les prénoms
+                </button>
             </div>
 
             <div id="stats" class="loading">Chargement en cours...</div>
@@ -297,15 +326,31 @@
                         .from("votes")
                         .select("*");
 
+                    const { data: voters } = await supabase
+                        .from("voters")
+                        .select("*");
+
                     if (songsError) throw songsError;
                     if (votesError) throw votesError;
 
                     allSongs = songs || [];
                     allVotes = votes || [];
 
+                    const nameByDevice = {};
+                    (voters || []).forEach((v) => {
+                        if (v.device_id && v.first_name)
+                            nameByDevice[v.device_id] = v.first_name;
+                    });
+
                     const count = {};
+                    const votersBySong = {};
                     allVotes.forEach((v) => {
                         count[v.song_id] = (count[v.song_id] || 0) + 1;
+                        const name = nameByDevice[v.device_id];
+                        if (name) {
+                            (votersBySong[v.song_id] =
+                                votersBySong[v.song_id] || []).push(name);
+                        }
                     });
 
                     // Tri par votes (décroissant)
@@ -326,12 +371,22 @@
                         const top1 = sorted[0];
                         const topDiv = document.createElement("div");
                         topDiv.className = "song-item top-1";
+                        const topNames = votersBySong[top1.id] || [];
+                        const topChips = topNames.length
+                            ? `<div class="voters">${topNames
+                                  .map(
+                                      (n) =>
+                                          `<span class="voter-chip">${n}</span>`,
+                                  )
+                                  .join("")}</div>`
+                            : "";
                         topDiv.innerHTML = `
             <div>
               <div class="crown">👑</div>
               <h2>${top1.title}</h2>
               <p>${top1.artist}</p>
               <div class="vote-count">${count[top1.id]} 🔥</div>
+              ${topChips}
             </div>
           `;
                         container.appendChild(topDiv);
@@ -346,10 +401,21 @@
                         const div = document.createElement("div");
                         div.className = "song-item";
 
+                        const names = votersBySong[song.id] || [];
+                        const chips = names.length
+                            ? `<div class="voters">${names
+                                  .map(
+                                      (n) =>
+                                          `<span class="voter-chip">${n}</span>`,
+                                  )
+                                  .join("")}</div>`
+                            : "";
+
                         div.innerHTML = `
             <div class="song-info">
               <h3>#${idx + 1} - ${song.title}</h3>
               <p>${song.artist}</p>
+              ${chips}
             </div>
             <div class="votes-section">
               <div class="vote-count">${voteCount}</div>
@@ -386,6 +452,17 @@
                         event: "*",
                         schema: "public",
                         table: "votes",
+                    },
+                    () => {
+                        render();
+                    },
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "voters",
                     },
                     () => {
                         render();
@@ -429,6 +506,41 @@
                     );
                     resetBtn.innerText = "🗑️ Réinitialiser les votes";
                     resetBtn.disabled = false;
+                }
+            };
+
+            // 🧹 Bouton : effacer uniquement les prénoms
+            const resetNamesBtn = document.getElementById("reset-names-btn");
+            resetNamesBtn.onclick = async () => {
+                const ok = confirm(
+                    "🧹 Effacer TOUS les prénoms ?\n\nÀ faire avant un nouveau concert. Les votes ne sont pas touchés.",
+                );
+                if (!ok) return;
+
+                resetNamesBtn.disabled = true;
+                resetNamesBtn.innerText = "⏳ Suppression...";
+
+                try {
+                    const { error } = await supabase
+                        .from("voters")
+                        .delete()
+                        .not("device_id", "is", null);
+
+                    if (error) throw error;
+
+                    await render();
+                    resetNamesBtn.innerText = "✅ Prénoms effacés !";
+                    setTimeout(() => {
+                        resetNamesBtn.innerText = "🧹 Effacer les prénoms";
+                        resetNamesBtn.disabled = false;
+                    }, 2000);
+                } catch (err) {
+                    console.error("Erreur reset prénoms:", err);
+                    alert(
+                        "Erreur lors de la suppression des prénoms. As-tu bien créé la table 'voters' et sa policy DELETE dans Supabase ?",
+                    );
+                    resetNamesBtn.innerText = "🧹 Effacer les prénoms";
+                    resetNamesBtn.disabled = false;
                 }
             };
 

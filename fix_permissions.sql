@@ -6,10 +6,26 @@
 alter table votes enable row level security;
 alter table songs enable row level security;
 
+-- 1 bis) Ajouter la colonne device_id sur votes (si base déjà existante)
+alter table votes add column if not exists device_id text;
+
+-- 1 ter) Table des votants / prénoms (créée avant ses policies)
+create table if not exists voters (
+  device_id text primary key,
+  first_name text not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+alter table voters enable row level security;
+
 -- 2) Supprimer les anciennes policies (si elles existent) pour repartir propre
 drop policy if exists "public insert votes" on votes;
 drop policy if exists "public read votes"   on votes;
 drop policy if exists "public read songs"   on songs;
+drop policy if exists "public read voters" on voters;
+drop policy if exists "public insert voters" on voters;
+drop policy if exists "public update voters" on voters;
+drop policy if exists "public delete voters" on voters;
 
 -- 3) Recréer les policies correctement
 
@@ -28,6 +44,31 @@ with check (true);
 -- 🔑 LA POLICY QUI MANQUAIT : lecture des votes (dashboard iPad)
 create policy "public read votes"
 on votes for select
+to anon, authenticated
+using (true);
+
+-- Lecture des prénoms (page de vote + dashboard)
+create policy "public read voters"
+on voters for select
+to anon, authenticated
+using (true);
+
+-- Insertion du prénom saisi le soir du concert
+create policy "public insert voters"
+on voters for insert
+to anon, authenticated
+with check (true);
+
+-- Mise à jour du prénom si la personne le corrige
+create policy "public update voters"
+on voters for update
+to anon, authenticated
+using (true)
+with check (true);
+
+-- Suppression des prénoms (bouton dédié dashboard)
+create policy "public delete voters"
+on voters for delete
 to anon, authenticated
 using (true);
 
@@ -80,6 +121,14 @@ begin
   alter publication supabase_realtime add table votes;
 exception
   when duplicate_object then null;  -- déjà membre : on ignore
+end $$;
+
+-- 👤 Temps réel sur la table des prénoms
+do $$
+begin
+  alter publication supabase_realtime add table voters;
+exception
+  when duplicate_object then null;
 end $$;
 
 -- ✅ C'est réparé ! Les votes vont maintenant s'enregistrer ET remonter au dashboard.
