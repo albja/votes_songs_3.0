@@ -34,11 +34,26 @@ alter publication supabase_realtime add table votes;
 
 -- 6) Insère les 5 morceaux
 insert into songs (title, artist) values
-('Song 1', 'Artist A'),
-('Song 2', 'Artist B'),
-('Song 3', 'Artist C'),
-('Song 4', 'Artist D'),
-('Song 5', 'Artist E');
+('Bohemian Rhapsody', 'Queen'),
+('Billie Jean', 'Michael Jackson'),
+('Smells Like Teen Spirit', 'Nirvana'),
+('Hotel California', 'Eagles'),
+('Stairway to Heaven', 'Led Zeppelin'),
+('Like a Rolling Stone', 'Bob Dylan'),
+('Purple Haze', 'Jimi Hendrix'),
+('Johnny B. Goode', 'Chuck Berry'),
+('What''s Going On', 'Marvin Gaye'),
+('Respect', 'Aretha Franklin'),
+('Born to Run', 'Bruce Springsteen'),
+('Superstition', 'Stevie Wonder'),
+('Lose Yourself', 'Eminem'),
+('Bitter Sweet Symphony', 'The Verve'),
+('Wonderwall', 'Oasis'),
+('Under the Bridge', 'Red Hot Chili Peppers'),
+('Mr. Brightside', 'The Killers'),
+('Rolling in the Deep', 'Adele'),
+('Blinding Lights', 'The Weeknd'),
+('Bad Guy', 'Billie Eilish');
 
 -- 🎤 C'est bon ! Tes tables sont prêtes.
 -- Remplace "Song 1", "Artist A", etc. par tes vraies chansons.
