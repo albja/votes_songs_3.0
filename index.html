@@ -104,12 +104,45 @@
             <h2>🎵 Vote</h2>
             <p class="subtitle">Quel morceau veux-tu entendre ?</p>
             <div id="songs" class="loading">Chargement des morceaux...</div>
+            <p id="vote-info" class="subtitle" style="margin-top: 16px"></p>
         </div>
 
         <script type="module">
             import { supabase } from "./supabase.js";
 
             let hasVoted = false;
+            let currentRound = 1;
+            let allButtons = [];
+
+            // Récupère le tour courant depuis Supabase
+            async function loadRound() {
+                try {
+                    const { data } = await supabase
+                        .from("app_state")
+                        .select("round")
+                        .eq("id", 1)
+                        .single();
+                    if (data && typeof data.round === "number") {
+                        currentRound = data.round;
+                    }
+                } catch (err) {
+                    console.warn("Pas de tour défini, round=1", err);
+                }
+                // A-t-il déjà voté à ce tour ?
+                const votedRound = localStorage.getItem("voted_round");
+                hasVoted =
+                    votedRound !== null && Number(votedRound) === currentRound;
+            }
+
+            function lockAllButtons(message) {
+                allButtons.forEach((b) => {
+                    b.disabled = true;
+                });
+                if (message) {
+                    const info = document.getElementById("vote-info");
+                    if (info) info.innerText = message;
+                }
+            }
 
             async function loadSongs() {
                 try {
@@ -132,9 +165,10 @@
                     data.forEach((song) => {
                         const btn = document.createElement("button");
                         btn.innerText = `${song.title} - ${song.artist}`;
+                        allButtons.push(btn);
                         btn.onclick = async () => {
                             if (hasVoted) {
-                                alert("Tu as déjà voté ! Merci 🎸");
+                                alert("Tu as déjà voté ce tour ! Merci 🎸");
                                 return;
                             }
 
@@ -143,8 +177,14 @@
                                     .from("votes")
                                     .insert([{ song_id: song.id }]);
                                 hasVoted = true;
-                                btn.disabled = true;
-                                btn.innerText = "✔ Voté ! Merci 🎸";
+                                localStorage.setItem(
+                                    "voted_round",
+                                    String(currentRound),
+                                );
+                                lockAllButtons(
+                                    "✅ Merci pour ton vote ! Attends le prochain tour 🎵",
+                                );
+                                btn.innerText = "✔ Ton choix 🎸";
                             } catch (err) {
                                 console.error("Erreur vote:", err);
                                 alert("Erreur lors du vote. Réessaye.");
@@ -153,6 +193,13 @@
 
                         container.appendChild(btn);
                     });
+
+                    // Si déjà voté à ce tour, on verrouille
+                    if (hasVoted) {
+                        lockAllButtons(
+                            "✅ Déjà voté ce tour ! Attends le prochain 🎵",
+                        );
+                    }
                 } catch (err) {
                     console.error("Erreur chargement:", err);
                     const container = document.getElementById("songs");
@@ -161,7 +208,34 @@
                 }
             }
 
-            loadSongs();
+            // Charge d'abord le tour, puis les chansons
+            (async () => {
+                await loadRound();
+                await loadSongs();
+            })();
+
+            // Écoute l'ouverture d'un nouveau tour (rouvre les votes en direct)
+            supabase
+                .channel("round-live")
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "UPDATE",
+                        schema: "public",
+                        table: "app_state",
+                    },
+                    (payload) => {
+                        const newRound = payload?.new?.round;
+                        if (
+                            typeof newRound === "number" &&
+                            newRound !== currentRound
+                        ) {
+                            // Nouveau tour : on recharge la page pour rouvrir le vote
+                            location.reload();
+                        }
+                    },
+                )
+                .subscribe();
         </script>
     </body>
 </html>

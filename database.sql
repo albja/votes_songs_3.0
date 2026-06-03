@@ -23,11 +23,21 @@ alter table votes enable row level security;
 -- 4) Permissions
 -- Les clients peuvent voir les morceaux
 create policy "public read songs"
-on songs for select using (true);
+on songs for select
+to anon, authenticated
+using (true);
 
--- Les clients peuvent voter
+-- Les clients peuvent voter (insertion)
 create policy "public insert votes"
-on votes for insert with check (true);
+on votes for insert
+to anon, authenticated
+with check (true);
+
+-- Le dashboard peut lire les votes (lecture)
+create policy "public read votes"
+on votes for select
+to anon, authenticated
+using (true);
 
 -- 5) Active le temps réel (Realtime)
 alter publication supabase_realtime add table votes;

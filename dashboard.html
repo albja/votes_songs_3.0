@@ -175,6 +175,33 @@
                 animation: pulse 2s infinite;
             }
 
+            .reset-btn {
+                margin-top: 20px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #fff;
+                background: rgba(239, 68, 68, 0.15);
+                border: 1px solid rgba(239, 68, 68, 0.4);
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .reset-btn:hover {
+                background: rgba(239, 68, 68, 0.3);
+                border-color: #ef4444;
+            }
+
+            .reset-btn:active {
+                transform: scale(0.97);
+            }
+
+            .reset-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
             @keyframes pulse {
                 0%,
                 100% {
@@ -211,6 +238,22 @@
                     <div class="label">Statut</div>
                     <div class="value" id="status">🟢 Live</div>
                 </div>
+            </div>
+
+            <div style="text-align: center">
+                <button
+                    id="new-round-btn"
+                    class="reset-btn"
+                    style="
+                        background: rgba(16, 185, 129, 0.15);
+                        border-color: rgba(16, 185, 129, 0.4);
+                    "
+                >
+                    🔄 Nouveau tour (rouvre les votes)
+                </button>
+                <button id="reset-btn" class="reset-btn">
+                    🗑️ Réinitialiser les votes
+                </button>
             </div>
         </div>
 
@@ -336,6 +379,95 @@
 
             // Rerender toutes les 5 secondes (fallback)
             setInterval(render, 5000);
+
+            // 🗑️ Bouton : réinitialiser tous les votes
+            const resetBtn = document.getElementById("reset-btn");
+            resetBtn.onclick = async () => {
+                const ok = confirm(
+                    "⚠️ Effacer TOUS les votes ?\n\nCette action est définitive (à faire avant un concert).",
+                );
+                if (!ok) return;
+
+                resetBtn.disabled = true;
+                resetBtn.innerText = "⏳ Suppression...";
+
+                try {
+                    // Supprime toutes les lignes de la table votes
+                    const { error } = await supabase
+                        .from("votes")
+                        .delete()
+                        .not("id", "is", null);
+
+                    if (error) throw error;
+
+                    await render();
+                    resetBtn.innerText = "✅ Votes effacés !";
+                    setTimeout(() => {
+                        resetBtn.innerText = "🗑️ Réinitialiser les votes";
+                        resetBtn.disabled = false;
+                    }, 2000);
+                } catch (err) {
+                    console.error("Erreur reset:", err);
+                    alert(
+                        "Erreur lors de la suppression. As-tu bien ajouté la policy DELETE dans Supabase ?",
+                    );
+                    resetBtn.innerText = "🗑️ Réinitialiser les votes";
+                    resetBtn.disabled = false;
+                }
+            };
+
+            // 🔄 Bouton : nouveau tour (efface les votes ET rouvre le vote pour tous)
+            const newRoundBtn = document.getElementById("new-round-btn");
+            newRoundBtn.onclick = async () => {
+                const ok = confirm(
+                    "🔄 Démarrer un NOUVEAU TOUR ?\n\nCela efface les votes actuels ET autorise tout le monde à voter à nouveau.",
+                );
+                if (!ok) return;
+
+                newRoundBtn.disabled = true;
+                newRoundBtn.innerText = "⏳ Ouverture...";
+
+                try {
+                    // 1) Efface les votes du tour précédent
+                    const { error: delError } = await supabase
+                        .from("votes")
+                        .delete()
+                        .not("id", "is", null);
+                    if (delError) throw delError;
+
+                    // 2) Incrémente le tour (déclenche le rechargement chez les clients)
+                    const { data: state } = await supabase
+                        .from("app_state")
+                        .select("round")
+                        .eq("id", 1)
+                        .single();
+
+                    const nextRound = (state?.round || 1) + 1;
+
+                    const { error: updError } = await supabase
+                        .from("app_state")
+                        .update({ round: nextRound })
+                        .eq("id", 1);
+                    if (updError) throw updError;
+
+                    await render();
+                    newRoundBtn.innerText =
+                        "✅ Tour " + nextRound + " ouvert !";
+                    setTimeout(() => {
+                        newRoundBtn.innerText =
+                            "🔄 Nouveau tour (rouvre les votes)";
+                        newRoundBtn.disabled = false;
+                    }, 2000);
+                } catch (err) {
+                    console.error("Erreur nouveau tour:", err);
+                    alert(
+                        "Erreur. As-tu bien créé la table app_state et ses policies dans Supabase ?",
+                    );
+                    newRoundBtn.innerText =
+                        "🔄 Nouveau tour (rouvre les votes)";
+                    newRoundBtn.disabled = false;
+                }
+            };
         </script>
     </body>
 </html>
