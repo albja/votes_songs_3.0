@@ -105,8 +105,8 @@
 
             .top-1 {
                 grid-column: 1 / -1;
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                border-color: rgba(245, 158, 11, 0.3);
+                background: linear-gradient(135deg, #E6C84A 0%, #D4B840 100%);
+                border-color: rgba(230, 200, 74, 0.3);
                 padding: 30px;
                 text-align: center;
                 border-radius: 16px;
@@ -223,6 +223,23 @@
                 </p>
             </div>
 
+            <!-- 🔘 Boutons en haut -->
+            <div style="text-align: center; margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
+                <button
+                    id="new-round-btn"
+                    class="reset-btn"
+                    style="
+                        background: rgba(16, 185, 129, 0.15);
+                        border-color: rgba(16, 185, 129, 0.4);
+                    "
+                >
+                    🔄 Nouveau tour (rouvre les votes)
+                </button>
+                <button id="reset-btn" class="reset-btn">
+                    🗑️ Réinitialiser les votes
+                </button>
+            </div>
+
             <div id="stats" class="loading">Chargement en cours...</div>
 
             <div class="stats-grid">
@@ -238,22 +255,6 @@
                     <div class="label">Statut</div>
                     <div class="value" id="status">🟢 Live</div>
                 </div>
-            </div>
-
-            <div style="text-align: center">
-                <button
-                    id="new-round-btn"
-                    class="reset-btn"
-                    style="
-                        background: rgba(16, 185, 129, 0.15);
-                        border-color: rgba(16, 185, 129, 0.4);
-                    "
-                >
-                    🔄 Nouveau tour (rouvre les votes)
-                </button>
-                <button id="reset-btn" class="reset-btn">
-                    🗑️ Réinitialiser les votes
-                </button>
             </div>
         </div>
 
