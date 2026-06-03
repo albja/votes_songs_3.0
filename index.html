@@ -97,143 +97,22 @@
                 border-radius: 8px;
                 margin-top: 20px;
             }
-
-            #filter-letters {
-                display: flex;
-                gap: 6px;
-                flex-wrap: wrap;
-                justify-content: center;
-                margin-bottom: 20px;
-                padding: 15px;
-                background: rgba(102, 126, 234, 0.05);
-                border-radius: 12px;
-            }
-
-            .letter-btn {
-                width: 32px;
-                height: 32px;
-                padding: 0;
-                font-size: 13px;
-                font-weight: 600;
-                border: 2px solid #667eea;
-                background: white;
-                color: #667eea;
-                border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-
-            .letter-btn:hover {
-                background: #667eea;
-                color: white;
-            }
-
-            .letter-btn.active {
-                background: #667eea;
-                color: white;
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-            }
         </style>
     </head>
     <body>
         <div class="container">
             <h2>🎵 Vote</h2>
             <p class="subtitle">Quel morceau veux-tu entendre ?</p>
-
-            <!-- Filtre par lettre -->
-            <div id="filter-letters"></div>
-
             <div id="songs" class="loading">Chargement des morceaux...</div>
             <p id="vote-info" class="subtitle" style="margin-top: 16px"></p>
         </div>
-
-        <script type=\"module\">
-            import { supabase } from \"./supabase.js\";
+        <script type="module">
+            import { supabase } from "./supabase.js";
 
             let hasVoted = false;
             let currentRound = 1;
             let allButtons = [];
-            let allSongs = [];
-            let selectedLetter = null;
 
-            // Crée le filtre alphabétique
-            function createLetterFilter() {
-                const filterDiv = document.getElementById('filter-letters');
-                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-                
-                const allBtn = document.createElement('button');
-                allBtn.className = 'letter-btn active';
-                allBtn.innerText = 'TOUS';
-                allBtn.onclick = () => filterBySong(null);
-                filterDiv.appendChild(allBtn);
-                
-                letters.forEach(letter => {
-                    const btn = document.createElement('button');
-                    btn.className = 'letter-btn';
-                    btn.innerText = letter;
-                    btn.onclick = () => filterBySong(letter);
-                    filterDiv.appendChild(btn);
-                });
-            }
-
-            // Filtre les chansons par première lettre du titre
-            function filterBySong(letter) {
-                selectedLetter = letter;
-                
-                // Marquer le bouton actif
-                document.querySelectorAll('.letter-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                event.target.classList.add('active');
-                
-                const container = document.getElementById('songs');
-                container.innerHTML = '';
-                allButtons = [];
-                
-                allSongs.forEach(song => {
-                    // Ignorer les caractères spéciaux au début
-                    let firstChar = song.title.replace(/^[^a-z]/i, '')[0].toUpperCase();
-                    
-                    // Afficher si pas de filtre OU si la lettre correspond
-                    if (!letter || firstChar === letter) {
-                        const btn = document.createElement('button');
-                        btn.innerText = `${song.title} - ${song.artist}`;
-                        allButtons.push(btn);
-                        btn.onclick = async () => {
-                            if (hasVoted) {
-                                alert('Tu as déjà voté ce tour ! Merci 🎸');
-                                return;
-                            }
-
-                            try {
-                                await supabase
-                                    .from('votes')
-                                    .insert([{ song_id: song.id }]);
-                                hasVoted = true;
-                                localStorage.setItem(
-                                    'voted_round',
-                                    String(currentRound),
-                                );
-                                lockAllButtons(
-                                    '✅ Merci pour ton vote ! Attends le prochain tour 🎵',
-                                );
-                                btn.innerText = '✔ Ton choix 🎸';
-                            } catch (err) {
-                                console.error('Erreur vote:', err);
-                                alert('Erreur lors du vote. Réessaye.');
-                            }
-                        };
-
-                        container.appendChild(btn);
-                    }
-                });
-                
-                if (allButtons.length === 0) {
-                    container.innerHTML = '<div class=\"error\">Aucun morceau avec cette lettre</div>';
-                }
-            }
-
-            // Récupère le tour courant depuis Supabase
             async function loadRound() {
                 try {
                     const { data } = await supabase
@@ -241,22 +120,18 @@
                         .select("round")
                         .eq("id", 1)
                         .single();
-                    if (data && typeof data.round === "number") {
+                    if (data && typeof data.round === "number")
                         currentRound = data.round;
-                    }
                 } catch (err) {
-                    console.warn("Pas de tour défini, round=1", err);
+                    console.warn("Pas de tour défini", err);
                 }
-                // A-t-il déjà voté à ce tour ?
                 const votedRound = localStorage.getItem("voted_round");
                 hasVoted =
                     votedRound !== null && Number(votedRound) === currentRound;
             }
 
             function lockAllButtons(message) {
-                allButtons.forEach((b) => {
-                    b.disabled = true;
-                });
+                allButtons.forEach((b) => (b.disabled = true));
                 if (message) {
                     const info = document.getElementById("vote-info");
                     if (info) info.innerText = message;
@@ -266,64 +141,79 @@
             async function loadSongs() {
                 try {
                     const { data, error } = await supabase
-                        .from(\"songs\")
-                        .select(\"*\")
-                        .order(\"created_at\", { ascending: true });
-
+                        .from("songs")
+                        .select("*")
+                        .order("created_at", { ascending: true });
                     if (error) throw error;
 
-                    allSongs = data || [];
+                    const container = document.getElementById("songs");
+                    container.innerHTML = "";
 
-                    if (!allSongs || allSongs.length === 0) {
-                        const container = document.getElementById(\"songs\");
+                    if (!data || data.length === 0) {
                         container.innerHTML =
-                            '<div class=\"error\">Aucun morceau disponible</div>';
+                            '<div class="error">Aucun morceau disponible</div>';
                         return;
                     }
 
-                    // Crée le filtre et affiche toutes les chansons par défaut
-                    createLetterFilter();
-                    filterBySong(null);
+                    data.forEach((song) => {
+                        const btn = document.createElement("button");
+                        btn.innerText = `${song.title} - ${song.artist}`;
+                        allButtons.push(btn);
+                        btn.onclick = async () => {
+                            if (hasVoted) {
+                                alert("Tu as déjà voté ce tour ! Merci 🎸");
+                                return;
+                            }
+                            try {
+                                await supabase
+                                    .from("votes")
+                                    .insert([{ song_id: song.id }]);
+                                hasVoted = true;
+                                localStorage.setItem(
+                                    "voted_round",
+                                    String(currentRound),
+                                );
+                                lockAllButtons(
+                                    "✅ Merci pour ton vote ! Attends le prochain tour 🎵",
+                                );
+                                btn.innerText = "✔ Ton choix 🎸";
+                            } catch (err) {
+                                console.error("Erreur vote:", err);
+                                alert("Erreur lors du vote. Réessaye.");
+                            }
+                        };
+                        container.appendChild(btn);
+                    });
 
-                    // Si déjà voté à ce tour, on verrouille
-                    if (hasVoted) {
+                    if (hasVoted)
                         lockAllButtons(
-                            \"✅ Déjà voté ce tour ! Attends le prochain 🎵\",
+                            "✅ Déjà voté ce tour ! Attends le prochain 🎵",
                         );
-                    }
                 } catch (err) {
-                    console.error(\"Erreur chargement:\", err);
-                    const container = document.getElementById(\"songs\");
+                    console.error("Erreur chargement:", err);
+                    const container = document.getElementById("songs");
                     container.innerHTML =
-                        '<div class=\"error\">Erreur de connexion. Réessaye.</div>';
+                        '<div class="error">Erreur de connexion. Réessaye.</div>';
                 }
             }
 
-            // Charge d'abord le tour, puis les chansons
             (async () => {
                 await loadRound();
                 await loadSongs();
             })();
 
-            // Écoute l'ouverture d'un nouveau tour (rouvre les votes en direct)
             supabase
                 .channel("round-live")
                 .on(
                     "postgres_changes",
-                    {
-                        event: "UPDATE",
-                        schema: "public",
-                        table: "app_state",
-                    },
+                    { event: "UPDATE", schema: "public", table: "app_state" },
                     (payload) => {
                         const newRound = payload?.new?.round;
                         if (
                             typeof newRound === "number" &&
                             newRound !== currentRound
-                        ) {
-                            // Nouveau tour : on recharge la page pour rouvrir le vote
+                        )
                             location.reload();
-                        }
                     },
                 )
                 .subscribe();
