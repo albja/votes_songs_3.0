@@ -180,7 +180,7 @@
 
             <div class="name-card" id="name-card">
                 <div id="name-form">
-                    <label for="first-name">Ton prénom (pour le live 🎤)</label>
+                    <label for="first-name">Ton prénom (obligatoire pour voter 🎤)</label>
                     <div class="name-row">
                         <input
                             id="first-name"
@@ -237,12 +237,30 @@
                 greetingText.innerText = `Salut ${firstName} 👋 ton prénom s'affichera sur le live.`;
                 nameForm.classList.add("hidden");
                 nameGreeting.classList.remove("hidden");
+                unlockSongButtons();
+            }
+
+            function unlockSongButtons() {
+                if (!hasVoted) {
+                    allButtons.forEach((b) => (b.disabled = false));
+                    const info = document.getElementById("vote-info");
+                    if (info && info.innerText.includes("prénom")) info.innerText = "";
+                }
+            }
+
+            function lockSongButtonsForName() {
+                allButtons.forEach((b) => (b.disabled = true));
+                const info = document.getElementById("vote-info");
+                if (info) info.innerText = "⬆️ Indique ton prénom pour pouvoir voter";
             }
 
             function showNameForm() {
-                firstNameInput.value = firstName;
+                firstName = "";
+                localStorage.removeItem("voter_first_name");
+                firstNameInput.value = "";
                 nameForm.classList.remove("hidden");
                 nameGreeting.classList.add("hidden");
+                lockSongButtonsForName();
                 firstNameInput.focus();
             }
 
@@ -325,6 +343,11 @@
                         btn.innerText = `${song.title} - ${song.artist}`;
                         allButtons.push(btn);
                         btn.onclick = async () => {
+                            if (!firstName) {
+                                alert("Indique ton prénom avant de voter 🎤");
+                                firstNameInput.focus();
+                                return;
+                            }
                             if (hasVoted) {
                                 alert("Tu as déjà voté ce tour ! Merci 🎸");
                                 return;
@@ -364,10 +387,13 @@
                         container.appendChild(btn);
                     });
 
-                    if (hasVoted)
+                    if (hasVoted) {
                         lockAllButtons(
                             "✅ Déjà voté ce tour ! Attends le prochain 🎵",
                         );
+                    } else if (!firstName) {
+                        lockSongButtonsForName();
+                    }
                 } catch (err) {
                     console.error("Erreur chargement:", err);
                     const container = document.getElementById("songs");
