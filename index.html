@@ -209,8 +209,6 @@
         <script type="module">
             import { supabase } from "./supabase.js";
 
-            let hasVoted = false;
-            let currentRound = 1;
             let allButtons = [];
             let firstName = localStorage.getItem("voter_first_name") || "";
 
@@ -243,12 +241,10 @@
             }
 
             function unlockSongButtons() {
-                if (!hasVoted) {
-                    allButtons.forEach((b) => (b.disabled = false));
-                    const info = document.getElementById("vote-info");
-                    if (info && info.innerText.includes("prénom"))
-                        info.innerText = "";
-                }
+                allButtons.forEach((b) => (b.disabled = false));
+                const info = document.getElementById("vote-info");
+                if (info && info.innerText.includes("prénom"))
+                    info.innerText = "";
             }
 
             function lockSongButtonsForName() {
@@ -300,30 +296,7 @@
             // Le prénom survit aux nouveaux tours
             if (firstName) showGreeting();
 
-            async function loadRound() {
-                try {
-                    const { data } = await supabase
-                        .from("app_state")
-                        .select("round")
-                        .eq("id", 1)
-                        .single();
-                    if (data && typeof data.round === "number")
-                        currentRound = data.round;
-                } catch (err) {
-                    console.warn("Pas de tour défini", err);
-                }
-                const votedRound = localStorage.getItem("voted_round");
-                hasVoted =
-                    votedRound !== null && Number(votedRound) === currentRound;
-            }
 
-            function lockAllButtons(message) {
-                allButtons.forEach((b) => (b.disabled = true));
-                if (message) {
-                    const info = document.getElementById("vote-info");
-                    if (info) info.innerText = message;
-                }
-            }
 
             async function loadSongs() {
                 try {
@@ -352,37 +325,29 @@
                                 firstNameInput.focus();
                                 return;
                             }
-                            if (hasVoted) {
-                                alert("Tu as déjà voté ce tour ! Merci 🎸");
-                                return;
-                            }
                             try {
-                                if (firstName) {
-                                    await supabase.from("voters").upsert(
-                                        {
-                                            device_id: deviceId,
-                                            first_name: firstName,
-                                            updated_at:
-                                                new Date().toISOString(),
-                                        },
-                                        { onConflict: "device_id" },
-                                    );
-                                }
+                                await supabase.from("voters").upsert(
+                                    {
+                                        device_id: deviceId,
+                                        first_name: firstName,
+                                        updated_at:
+                                            new Date().toISOString(),
+                                    },
+                                    { onConflict: "device_id" },
+                                );
                                 await supabase.from("votes").insert([
                                     {
                                         song_id: song.id,
                                         device_id: deviceId,
                                     },
                                 ]);
-                                hasVoted = true;
-                                localStorage.setItem(
-                                    "voted_round",
-                                    String(currentRound),
-                                );
-                                lockAllButtons(
-                                    "✅ Merci pour ton vote ! Attends le prochain tour 🎵",
-                                );
-                                btn.innerText = "✔ Ton choix 🎸";
+                                const original = btn.innerText;
+                                btn.innerText = "✔ Voté !";
+                                btn.disabled = true;
+                                setTimeout(() => {
+                                    btn.innerText = original;
+                                    btn.disabled = false;
+                                }, 1500);
                             } catch (err) {
                                 console.error("Erreur vote:", err);
                                 alert("Erreur lors du vote. Réessaye.");
@@ -391,11 +356,7 @@
                         container.appendChild(btn);
                     });
 
-                    if (hasVoted) {
-                        lockAllButtons(
-                            "✅ Déjà voté ce tour ! Attends le prochain 🎵",
-                        );
-                    } else if (!firstName) {
+                    if (!firstName) {
                         lockSongButtonsForName();
                     }
                 } catch (err) {
@@ -407,25 +368,8 @@
             }
 
             (async () => {
-                await loadRound();
                 await loadSongs();
             })();
-
-            supabase
-                .channel("round-live")
-                .on(
-                    "postgres_changes",
-                    { event: "UPDATE", schema: "public", table: "app_state" },
-                    (payload) => {
-                        const newRound = payload?.new?.round;
-                        if (
-                            typeof newRound === "number" &&
-                            newRound !== currentRound
-                        )
-                            location.reload();
-                    },
-                )
-                .subscribe();
         </script>
     </body>
 </html>
