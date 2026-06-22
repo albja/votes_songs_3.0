@@ -180,7 +180,9 @@
 
             <div class="name-card" id="name-card">
                 <div id="name-form">
-                    <label for="first-name">Ton prénom (obligatoire pour voter 🎤)</label>
+                    <label for="first-name"
+                        >Ton prénom (obligatoire pour voter 🎤)</label
+                    >
                     <div class="name-row">
                         <input
                             id="first-name"
@@ -244,14 +246,16 @@
                 if (!hasVoted) {
                     allButtons.forEach((b) => (b.disabled = false));
                     const info = document.getElementById("vote-info");
-                    if (info && info.innerText.includes("prénom")) info.innerText = "";
+                    if (info && info.innerText.includes("prénom"))
+                        info.innerText = "";
                 }
             }
 
             function lockSongButtonsForName() {
                 allButtons.forEach((b) => (b.disabled = true));
                 const info = document.getElementById("vote-info");
-                if (info) info.innerText = "⬆️ Indique ton prénom pour pouvoir voter";
+                if (info)
+                    info.innerText = "⬆️ Indique ton prénom pour pouvoir voter";
             }
 
             function showNameForm() {
