@@ -171,6 +171,51 @@
             .hidden {
                 display: none !important;
             }
+
+            .category {
+                margin-bottom: 14px;
+            }
+
+            .category-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                font-size: 17px;
+                font-weight: 700;
+                color: #4338ca;
+                background: #f5f3ff;
+                border: 2px solid #c7d2fe;
+                border-radius: 12px;
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.2s;
+            }
+
+            .category-header:hover {
+                background: #ede9fe;
+            }
+
+            .category-header .arrow {
+                transition: transform 0.3s;
+                font-size: 14px;
+            }
+
+            .category.open .category-header .arrow {
+                transform: rotate(90deg);
+            }
+
+            .category-songs {
+                display: none;
+                flex-direction: column;
+                gap: 10px;
+                margin-top: 10px;
+                padding-left: 6px;
+            }
+
+            .category.open .category-songs {
+                display: flex;
+            }
         </style>
     </head>
     <body>
@@ -331,49 +376,77 @@
                         return;
                     }
 
+                    // Grouper par catégorie
+                    const groups = {};
                     data.forEach((song) => {
-                        const btn = document.createElement("button");
-                        btn.innerText = `${song.title} - ${song.artist}`;
-                        allButtons.push(btn);
+                        const cat = song.category || "Autres";
+                        if (!groups[cat]) groups[cat] = [];
+                        groups[cat].push(song);
+                    });
 
-                        btn.onclick = async () => {
-                            if (!firstName) {
-                                alert("Indique ton prénom avant de voter 🎤");
-                                firstNameInput.focus();
-                                return;
-                            }
-                            if (hasVoted) {
-                                alert(
-                                    "Tu as déjà voté ! Attends la prochaine session 🎵",
-                                );
-                                return;
-                            }
-                            try {
-                                await supabase.from("voters").upsert(
-                                    {
-                                        device_id: deviceId,
-                                        first_name: firstName,
-                                        updated_at: new Date().toISOString(),
-                                    },
-                                    { onConflict: "device_id" },
-                                );
-                                await supabase.from("votes").insert([
-                                    {
-                                        song_id: song.id,
-                                        device_id: deviceId,
-                                    },
-                                ]);
-                                hasVoted = true;
-                                localStorage.setItem("has_voted", "true");
-                                lockAllButtons(
-                                    "✅ Merci pour ton vote ! Attends la prochaine session 🎵",
-                                );
-                            } catch (err) {
-                                console.error("Erreur vote:", err);
-                                alert("Erreur lors du vote. Réessaye.");
-                            }
-                        };
-                        container.appendChild(btn);
+                    Object.keys(groups).forEach((catName) => {
+                        const section = document.createElement("div");
+                        section.className = "category";
+
+                        const header = document.createElement("div");
+                        header.className = "category-header";
+                        header.innerHTML = `<span>${catName}</span><span class="arrow">▶</span>`;
+                        header.onclick = () => section.classList.toggle("open");
+                        section.appendChild(header);
+
+                        const songList = document.createElement("div");
+                        songList.className = "category-songs";
+
+                        groups[catName].forEach((song) => {
+                            const btn = document.createElement("button");
+                            btn.innerText = `${song.title} - ${song.artist}`;
+                            allButtons.push(btn);
+
+                            btn.onclick = async () => {
+                                if (!firstName) {
+                                    alert(
+                                        "Indique ton prénom avant de voter 🎤",
+                                    );
+                                    firstNameInput.focus();
+                                    return;
+                                }
+                                if (hasVoted) {
+                                    alert(
+                                        "Tu as déjà voté ! Attends la prochaine session 🎵",
+                                    );
+                                    return;
+                                }
+                                try {
+                                    await supabase.from("voters").upsert(
+                                        {
+                                            device_id: deviceId,
+                                            first_name: firstName,
+                                            updated_at:
+                                                new Date().toISOString(),
+                                        },
+                                        { onConflict: "device_id" },
+                                    );
+                                    await supabase.from("votes").insert([
+                                        {
+                                            song_id: song.id,
+                                            device_id: deviceId,
+                                        },
+                                    ]);
+                                    hasVoted = true;
+                                    localStorage.setItem("has_voted", "true");
+                                    lockAllButtons(
+                                        "✅ Merci pour ton vote ! Attends la prochaine session 🎵",
+                                    );
+                                } catch (err) {
+                                    console.error("Erreur vote:", err);
+                                    alert("Erreur lors du vote. Réessaye.");
+                                }
+                            };
+                            songList.appendChild(btn);
+                        });
+
+                        section.appendChild(songList);
+                        container.appendChild(section);
                     });
 
                     if (hasVoted) {
