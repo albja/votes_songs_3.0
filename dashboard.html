@@ -297,6 +297,16 @@
                 <button id="reset-names-btn" class="reset-btn">
                     🧹 Effacer les prénoms
                 </button>
+                <button
+                    id="top5-btn"
+                    class="reset-btn"
+                    style="
+                        background: rgba(234, 179, 8, 0.15);
+                        border-color: rgba(234, 179, 8, 0.4);
+                    "
+                >
+                    🏆 Top 5
+                </button>
             </div>
 
             <div id="stats" class="loading">Chargement en cours...</div>
@@ -307,6 +317,7 @@
 
             let allSongs = [];
             let allVotes = [];
+            let showTop5 = false;
 
             // Afficher l'heure de démarrage
             document.getElementById("start-time").innerText =
@@ -354,9 +365,14 @@
                     });
 
                     // Tri par votes (décroissant)
-                    const sorted = [...allSongs].sort(
+                    let sorted = [...allSongs].sort(
                         (a, b) => (count[b.id] || 0) - (count[a.id] || 0),
                     );
+
+                    // Limiter à 5 si mode Top 5 actif
+                    if (showTop5) {
+                        sorted = sorted.slice(0, 5);
+                    }
 
                     const maxVotes = Math.max(
                         ...sorted.map((s) => count[s.id] || 0),
@@ -442,6 +458,17 @@
 
             // Rendu initial
             render();
+
+            // 🏆 Bouton : afficher uniquement le Top 5
+            const top5Btn = document.getElementById("top5-btn");
+            top5Btn.onclick = () => {
+                showTop5 = !showTop5;
+                top5Btn.innerText = showTop5 ? "📋 Voir tout" : "🏆 Top 5";
+                top5Btn.style.background = showTop5
+                    ? "rgba(234, 179, 8, 0.35)"
+                    : "rgba(234, 179, 8, 0.15)";
+                render();
+            };
 
             // Écouter les changements en temps réel
             supabase
