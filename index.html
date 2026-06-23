@@ -211,9 +211,7 @@
 
             let allButtons = [];
             let firstName = localStorage.getItem("voter_first_name") || "";
-            const votedSongIds = new Set(
-                JSON.parse(localStorage.getItem("voted_songs") || "[]"),
-            );
+            let hasVoted = localStorage.getItem("has_voted") === "true";
 
             // Identifiant stable par appareil (ne change pas entre les tours)
             function getDeviceId() {
@@ -244,10 +242,18 @@
             }
 
             function unlockSongButtons() {
-                allButtons.forEach((b) => (b.disabled = false));
+                if (!hasVoted) {
+                    allButtons.forEach((b) => (b.disabled = false));
+                    const info = document.getElementById("vote-info");
+                    if (info && info.innerText.includes("prénom"))
+                        info.innerText = "";
+                }
+            }
+
+            function lockAllButtons(message) {
+                allButtons.forEach((b) => (b.disabled = true));
                 const info = document.getElementById("vote-info");
-                if (info && info.innerText.includes("prénom"))
-                    info.innerText = "";
+                if (info) info.innerText = message;
             }
 
             function lockSongButtonsForName() {
@@ -301,13 +307,13 @@
 
             async function loadSongs() {
                 try {
-                    // Si les votes ont été réinitialisés, on efface la liste locale
+                    // Si les votes ont été réinitialisés, on déverrouille le votant
                     const { count } = await supabase
                         .from("votes")
                         .select("*", { count: "exact", head: true });
-                    if (count === 0 && votedSongIds.size > 0) {
-                        votedSongIds.clear();
-                        localStorage.removeItem("voted_songs");
+                    if (count === 0 && hasVoted) {
+                        hasVoted = false;
+                        localStorage.removeItem("has_voted");
                     }
 
                     const { data, error } = await supabase
@@ -329,11 +335,6 @@
                         const btn = document.createElement("button");
                         btn.innerText = `${song.title} - ${song.artist}`;
                         allButtons.push(btn);
-                        if (votedSongIds.has(song.id)) {
-                            btn.innerText = `✔ ${song.title} - ${song.artist}`;
-                            btn.disabled = true;
-                            btn.style.opacity = "0.6";
-                        }
 
                         btn.onclick = async () => {
                             if (!firstName) {
@@ -341,8 +342,10 @@
                                 firstNameInput.focus();
                                 return;
                             }
-                            if (votedSongIds.has(song.id)) {
-                                alert("Tu as déjà voté pour ce morceau 😉");
+                            if (hasVoted) {
+                                alert(
+                                    "Tu as déjà voté ! Attends la prochaine session 🎵",
+                                );
                                 return;
                             }
                             try {
@@ -360,14 +363,11 @@
                                         device_id: deviceId,
                                     },
                                 ]);
-                                votedSongIds.add(song.id);
-                                localStorage.setItem(
-                                    "voted_songs",
-                                    JSON.stringify([...votedSongIds]),
+                                hasVoted = true;
+                                localStorage.setItem("has_voted", "true");
+                                lockAllButtons(
+                                    "✅ Merci pour ton vote ! Attends la prochaine session 🎵",
                                 );
-                                btn.innerText = `✔ ${song.title} - ${song.artist}`;
-                                btn.disabled = true;
-                                btn.style.opacity = "0.6";
                             } catch (err) {
                                 console.error("Erreur vote:", err);
                                 alert("Erreur lors du vote. Réessaye.");
@@ -376,7 +376,11 @@
                         container.appendChild(btn);
                     });
 
-                    if (!firstName) {
+                    if (hasVoted) {
+                        lockAllButtons(
+                            "✅ Déjà voté ! Attends la prochaine session 🎵",
+                        );
+                    } else if (!firstName) {
                         lockSongButtonsForName();
                     }
                 } catch (err) {
