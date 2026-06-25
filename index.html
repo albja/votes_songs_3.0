@@ -172,6 +172,45 @@
                 display: none !important;
             }
 
+            /* Live banner */
+            .live-banner {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 18px;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            .live-banner .live-dot {
+                width: 8px;
+                height: 8px;
+                background: #10b981;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 8px;
+                animation: pulse-dot 2s infinite;
+            }
+
+            .live-banner .presence {
+                font-size: 13px;
+                opacity: 0.9;
+            }
+
+            @keyframes pulse-dot {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.4;
+                }
+            }
+
             .category {
                 margin-bottom: 14px;
             }
@@ -222,6 +261,17 @@
         <div class="container">
             <h2>🎵 Vote</h2>
             <p class="subtitle">Quel morceau veux-tu entendre ?</p>
+
+            <!-- Live banner: compteur + présence -->
+            <div class="live-banner">
+                <div>
+                    <span class="live-dot"></span>
+                    <span id="live-votes">0</span> votes en direct
+                </div>
+                <div class="presence">
+                    👥 <span id="presence-count">1</span> connecté(s)
+                </div>
+            </div>
 
             <div class="name-card" id="name-card">
                 <div id="name-form">
@@ -400,7 +450,13 @@
                         groups[catName].forEach((song) => {
                             const btn = document.createElement("button");
                             btn.innerText = `${song.title} - ${song.artist}`;
+                            btn.dataset.songId = String(song.id);
                             allButtons.push(btn);
+
+                            // Masquer si déjà joué
+                            if (song.played) {
+                                btn.style.display = "none";
+                            }
 
                             btn.onclick = async () => {
                                 if (!firstName) {
@@ -466,6 +522,86 @@
 
             (async () => {
                 await loadSongs();
+
+                // — Compteur live de votes —
+                const { count: initialCount } = await supabase
+                    .from("votes")
+                    .select("*", { count: "exact", head: true });
+                document.getElementById("live-votes").innerText =
+                    initialCount || 0;
+
+                // — Realtime: votes (compteur live + déverrouillage nouveau tour) —
+                supabase
+                    .channel("voter-realtime")
+                    .on(
+                        "postgres_changes",
+                        { event: "*", schema: "public", table: "votes" },
+                        async () => {
+                            const { count } = await supabase
+                                .from("votes")
+                                .select("*", { count: "exact", head: true });
+                            document.getElementById("live-votes").innerText =
+                                count || 0;
+
+                            // Si votes = 0, un nouveau tour a commencé
+                            if (count === 0 && hasVoted) {
+                                hasVoted = false;
+                                localStorage.removeItem("has_voted");
+                                if (firstName) unlockSongButtons();
+                                document.getElementById("vote-info").innerText =
+                                    "🔄 Nouveau tour ! Tu peux re-voter 🎉";
+                            }
+                        },
+                    )
+                    .on(
+                        "postgres_changes",
+                        { event: "UPDATE", schema: "public", table: "songs" },
+                        (payload) => {
+                            // — Played sync: masquer les morceaux joués —
+                            const song = payload.new;
+                            if (song.played) {
+                                // Masquer le bouton du morceau joué
+                                allButtons.forEach((btn) => {
+                                    if (
+                                        btn.dataset.songId === String(song.id)
+                                    ) {
+                                        btn.style.display = "none";
+                                    }
+                                });
+                            } else {
+                                // Ré-afficher si "un-played"
+                                allButtons.forEach((btn) => {
+                                    if (
+                                        btn.dataset.songId === String(song.id)
+                                    ) {
+                                        btn.style.display = "";
+                                    }
+                                });
+                            }
+                        },
+                    )
+                    .subscribe();
+
+                // — Présence: combien de personnes ont la page ouverte —
+                const presenceChannel = supabase.channel("online-voters", {
+                    config: { presence: { key: deviceId } },
+                });
+
+                presenceChannel
+                    .on("presence", { event: "sync" }, () => {
+                        const state = presenceChannel.presenceState();
+                        const count = Object.keys(state).length;
+                        document.getElementById("presence-count").innerText =
+                            count;
+                    })
+                    .subscribe(async (status) => {
+                        if (status === "SUBSCRIBED") {
+                            await presenceChannel.track({
+                                user: firstName || "Anonyme",
+                                online_at: new Date().toISOString(),
+                            });
+                        }
+                    });
             })();
         </script>
     </body>

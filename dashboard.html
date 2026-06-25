@@ -242,9 +242,100 @@
                     opacity: 0.5;
                 }
             }
+
+            /* Toast notifications */
+            .toast-container {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: none;
+            }
+
+            .toast {
+                background: rgba(16, 185, 129, 0.95);
+                color: white;
+                padding: 14px 20px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+                animation:
+                    slideIn 0.3s ease,
+                    fadeOut 0.5s ease 2.5s forwards;
+                pointer-events: auto;
+            }
+
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes fadeOut {
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+
+            /* Played button */
+            .played-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(255, 255, 255, 0.05);
+                color: #9ca3af;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+                margin-left: 10px;
+            }
+
+            .played-btn:hover {
+                background: rgba(16, 185, 129, 0.2);
+                border-color: #10b981;
+                color: #10b981;
+            }
+
+            .played-btn.active {
+                background: rgba(16, 185, 129, 0.3);
+                border-color: #10b981;
+                color: #10b981;
+            }
+
+            .song-item.is-played {
+                opacity: 0.4;
+                text-decoration: line-through;
+            }
+
+            /* Presence badge */
+            .presence-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(16, 185, 129, 0.15);
+                border: 1px solid rgba(16, 185, 129, 0.3);
+                padding: 8px 14px;
+                border-radius: 20px;
+                font-size: 13px;
+                color: #10b981;
+                font-weight: 600;
+            }
         </style>
     </head>
     <body>
+        <!-- Toast container -->
+        <div class="toast-container" id="toast-container"></div>
+
         <div class="container">
             <div class="header">
                 <h1>🗳️ Votes en direct</h1>
@@ -252,6 +343,10 @@
                     <span class="refresh-indicator"></span>
                     Live depuis <span id="start-time">--:--</span>
                 </p>
+                <div class="presence-badge" style="margin-top: 10px">
+                    👥 <span id="presence-count">0</span> personne(s)
+                    connectée(s)
+                </div>
             </div>
 
             <!-- 📈 Stats en haut -->
@@ -318,6 +413,16 @@
             let allSongs = [];
             let allVotes = [];
             let showTop5 = false;
+
+            // — Toast system —
+            function showToast(message) {
+                const container = document.getElementById("toast-container");
+                const toast = document.createElement("div");
+                toast.className = "toast";
+                toast.innerText = message;
+                container.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
 
             // Afficher l'heure de démarrage
             document.getElementById("start-time").innerText =
@@ -415,7 +520,8 @@
                             maxVotes > 0 ? (voteCount / maxVotes) * 100 : 0;
 
                         const div = document.createElement("div");
-                        div.className = "song-item";
+                        div.className =
+                            "song-item" + (song.played ? " is-played" : "");
 
                         const names = votersBySong[song.id] || [];
                         const chips = names.length
@@ -427,9 +533,14 @@
                                   .join("")}</div>`
                             : "";
 
+                        const playedClass = song.played ? " active" : "";
+                        const playedLabel = song.played
+                            ? "✅ Joué"
+                            : "🎵 Joué ?";
+
                         div.innerHTML = `
             <div class="song-info">
-              <h3>#${idx + 1} - ${song.title}</h3>
+              <h3>#${idx + 1} - ${song.title} <button class="played-btn${playedClass}" data-song-id="${song.id}">${playedLabel}</button></h3>
               <p>${song.artist}</p>
               ${chips}
             </div>
@@ -442,6 +553,23 @@
           `;
 
                         container.appendChild(div);
+                    });
+
+                    // Attach played toggle handlers
+                    document.querySelectorAll(".played-btn").forEach((btn) => {
+                        btn.onclick = async () => {
+                            const songId = btn.dataset.songId;
+                            const song = allSongs.find(
+                                (s) => String(s.id) === songId,
+                            );
+                            if (!song) return;
+                            const newPlayed = !song.played;
+                            await supabase
+                                .from("songs")
+                                .update({ played: newPlayed })
+                                .eq("id", song.id);
+                            // Re-render will be triggered by realtime
+                        };
                     });
 
                     // Stats en bas
@@ -470,13 +598,35 @@
                 render();
             };
 
-            // Écouter les changements en temps réel
+            // Écouter les changements en temps réel (avec toast notifications)
             supabase
-                .channel("votes-live")
+                .channel("dashboard-live")
                 .on(
                     "postgres_changes",
                     {
-                        event: "*",
+                        event: "INSERT",
+                        schema: "public",
+                        table: "votes",
+                    },
+                    async (payload) => {
+                        // Toast: qui vient de voter ?
+                        const vote = payload.new;
+                        if (vote && vote.device_id) {
+                            const { data: voter } = await supabase
+                                .from("voters")
+                                .select("first_name")
+                                .eq("device_id", vote.device_id)
+                                .single();
+                            const name = voter?.first_name || "Quelqu'un";
+                            showToast(`🎉 ${name} vient de voter !`);
+                        }
+                        render();
+                    },
+                )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "DELETE",
                         schema: "public",
                         table: "votes",
                     },
@@ -495,7 +645,38 @@
                         render();
                     },
                 )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "UPDATE",
+                        schema: "public",
+                        table: "songs",
+                    },
+                    () => {
+                        render();
+                    },
+                )
                 .subscribe();
+
+            // — Présence: combien de votants connectés —
+            const presenceChannel = supabase.channel("online-voters", {
+                config: { presence: { key: "dashboard" } },
+            });
+
+            presenceChannel
+                .on("presence", { event: "sync" }, () => {
+                    const state = presenceChannel.presenceState();
+                    const count = Object.keys(state).length;
+                    document.getElementById("presence-count").innerText = count;
+                })
+                .subscribe(async (status) => {
+                    if (status === "SUBSCRIBED") {
+                        await presenceChannel.track({
+                            user: "Dashboard",
+                            online_at: new Date().toISOString(),
+                        });
+                    }
+                });
 
             // Rerender toutes les 5 secondes (fallback)
             setInterval(render, 5000);

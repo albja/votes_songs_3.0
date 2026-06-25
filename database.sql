@@ -6,6 +6,8 @@ create table songs (
   id uuid default gen_random_uuid() primary key,
   title text not null,
   artist text,
+  category text,
+  played boolean default false,
   created_at timestamp default now()
 );
 
@@ -76,6 +78,14 @@ using (true);
 -- 5) Active le temps réel (Realtime)
 alter publication supabase_realtime add table votes;
 alter publication supabase_realtime add table voters;
+alter publication supabase_realtime add table songs;
+
+-- 5 bis) Policy UPDATE sur songs (pour toggler "played" depuis le dashboard)
+create policy "public update songs"
+on songs for update
+to anon, authenticated
+using (true)
+with check (true);
 
 -- 6) Insère les 5 morceaux
 insert into songs (title, artist) values
