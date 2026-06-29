@@ -393,6 +393,16 @@
                     🧹 Effacer les prénoms
                 </button>
                 <button
+                    id="reset-played-btn"
+                    class="reset-btn"
+                    style="
+                        background: rgba(99, 102, 241, 0.15);
+                        border-color: rgba(99, 102, 241, 0.4);
+                    "
+                >
+                    ↩️ Réafficher tous les morceaux
+                </button>
+                <button
                     id="top5-btn"
                     class="reset-btn"
                     style="
@@ -802,6 +812,42 @@
                     newRoundBtn.innerText =
                         "🔄 Nouveau tour (rouvre les votes)";
                     newRoundBtn.disabled = false;
+                }
+            };
+
+            // ↩️ Bouton : réafficher tous les morceaux (remet played = false)
+            const resetPlayedBtn = document.getElementById("reset-played-btn");
+            resetPlayedBtn.onclick = async () => {
+                const ok = confirm(
+                    "↩️ Réafficher TOUS les morceaux ?\n\nLes morceaux marqués « joués » redeviendront visibles et votables pour le public.",
+                );
+                if (!ok) return;
+
+                resetPlayedBtn.disabled = true;
+                resetPlayedBtn.innerText = "⏳ Réaffichage...";
+
+                try {
+                    const { error } = await supabase
+                        .from("songs")
+                        .update({ played: false })
+                        .eq("played", true);
+                    if (error) throw error;
+
+                    await render();
+                    resetPlayedBtn.innerText = "✅ Tout réaffiché !";
+                    setTimeout(() => {
+                        resetPlayedBtn.innerText =
+                            "↩️ Réafficher tous les morceaux";
+                        resetPlayedBtn.disabled = false;
+                    }, 2000);
+                } catch (err) {
+                    console.error("Erreur réaffichage:", err);
+                    alert(
+                        "Erreur lors du réaffichage. As-tu bien ajouté la policy UPDATE sur songs dans Supabase ?",
+                    );
+                    resetPlayedBtn.innerText =
+                        "↩️ Réafficher tous les morceaux";
+                    resetPlayedBtn.disabled = false;
                 }
             };
         </script>
